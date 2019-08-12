@@ -1,0 +1,199 @@
+function myFunction() {
+  /*
+  //////////////////////////// P S E U D O C O D E /////////////////////////////////
+​
+  If today is the first of the month:
+    -Create a new folder formatted as "<year> / <date>"
+  Else: //This month's folder already exists
+    -Get this month's folder
+​
+  If today is Monday:
+    -Generate a single document and populate it with DAILY and WEEKLY template text
+    -Place newly generated file into appropriate folder "<year> / <date>"
+  Else if today is a weekday:
+    -Generate a single document and populate it with DAILY template text
+    If today is the first of the month:
+      -Find LAST month's folder and pull the most recently created file
+      -Pull the WEEKLY data from yesterday's file and append it to the new document
+    Else:
+      -Find THIS month's folder and pull the most recently created file
+      -Pull the WEEKLY data from yesterday's file and append it to the new document
+​
+  */
+​
+  ///////////////////////////////// E M P L O Y E E S //////////////////////////////
+​
+  // Need to add or remove someone from the report? Do it here!
+  var empList = ["Employee1", "Employee2", "etc."];
+ //////////////////////////// D A T E  P A R S I N G ///////////////////////////////
+​
+  var MON = 1,
+      TUES = 2,
+      WED = 3,
+      THURS = 4,
+      FRI = 5;
+​
+  var fullDate = new Date();
+​
+  // .getDay() returns a float corresponding to the day of the week, ex. 3.0 = WEDNESDAY
+  var day = fullDate.getDay();
+​
+  // .getDate() returns a float corresponding to the date, ex. July 17th -> 17.0
+  var date = fullDate.getDate();
+​
+  // .getMonth() returns a float corresponding to the month, ex. July 17th -> 7.0
+  var month = fullDate.getMonth() + 1;
+​
+  // Guess what .getYear() returns
+  var year = fullDate.getYear();
+​
+  /////////////////////// F I L E  R E T R I E V A L ///////////////////////////
+  // Retrieve folder you want to write to by ID. For this script, folders will
+  // named by the following convention: "<current month> / <current year>"
+  var folderID = DriveApp.getFolderById('<googleDriveFolderID>');
+​
+  ///////////////////////// F O L D E R  C R E A T I O N ///////////////////////
+​
+  var newFolder = null;
+​
+  // Creates a new folder at the start of each month
+  if (date == 1){
+​
+    newFolder = folderID.createFolder(month + " / " + year);
+​
+  }
+​
+  // If it isn't the start of the month, find current month's folder
+  else {
+​
+    newFolder = folderID.getFoldersByName(month + " / " + year).next();
+​
+  }
+​
+​
+  /////////////////////////////// S T Y L E S //////////////////////////////////
+​
+  /*
+  This section governs the overall styling of the various elements in the resulting reports
+  */
+  var h1 = {};
+  h1[DocumentApp.Attribute.FONT_SIZE] = 18;
+  h1[DocumentApp.Attribute.UNDERLINE] = true;
+  h1[DocumentApp.Attribute.BOLD] = true;
+​
+  var h2 = {};
+  h2[DocumentApp.Attribute.FONT_SIZE] = 15;
+  h2[DocumentApp.Attribute.UNDERLINE] = true;
+  h2[DocumentApp.Attribute.BOLD] = false;
+​
+  var paras = {};
+  paras[DocumentApp.Attribute.FONT_SIZE] = 12;
+  paras[DocumentApp.Attribute.UNDERLINE] = false;
+  paras[DocumentApp.Attribute.BOLD] = false;
+​
+​
+​
+  ////////////////////////// F I L E  C R E A T I O N //////////////////////////
+​
+  // If today is Monday...
+  if (day == MON) {
+    /*
+     Create a new blank document called "<current-month> / <current day>" and
+     store a reference to it in the doc object :::::: EX.: If today is Monday,
+     June 15th, then the file will be named '7 / 15'
+    */
+    var doc = DocumentApp.create(month + " / " + date);
+    var body = doc.getBody();
+​
+    // Create the "Daily" portion
+    body.appendParagraph("Operations Daily Standup\n").setAttributes(h1);
+    body.appendParagraph("Issues of the Day\n").setAttributes(h2);
+    for(i = 0; i < empList.length; i++){
+      body.appendParagraph(empList[i] + ":\n").setAttributes(paras);
+    }
+​
+    // Create the "Weekly" portion
+    body.appendParagraph("Weekly Outline Briefed on Mondays\n").setAttributes(h2);
+    for(i = 0; i < empList.length; i++){
+      body.appendParagraph(empList[i] + ":\n").setAttributes(paras);
+    }
+​
+    // Now that the 'doc' body is populated, get ID reference of doc object and
+    // add the reference to the 'newFolder'
+    var docfile = DriveApp.getFileById(doc.getId());
+    newFolder.addFile(docfile);
+  }
+​
+  // If today is a weekday and not Monday
+  else if (day >= TUES && day <= FRI) {
+    // Need to handle case where beginning of month falls on Tues-Fri
+    if (date == 1){
+      var yesterMonth = month-1;
+      var yesterMonthFolder = folderID.getFoldersByName(yesterMonth + " / " + year).next();
+      var fileList = yesterMonthFolder.getFiles();
+      var files = [];
+​
+      while (fileList.hasNext()){
+        var file = fileList.next();
+        files.push(file);
+      }
+​
+      //Logger.log(files.sort());
+      var temp = files.sort().pop();
+      //Logger.log(temp);
+      var newFile = yesterMonthFolder.getFilesByName(temp);
+​
+    }
+​
+    else {
+    // Find yesterday's file in newFolder and get its ID
+      var yesterday = date-1;
+      var newFile = newFolder.getFilesByName(month + " / " + yesterday);
+    }
+​
+    var yesterday_ID = newFile.next().getId();
+​
+    // Open yesterday's file and pull paragraph elements into an array (yesterday_body)
+    var yesterday_doc = DocumentApp.openById(yesterday_ID);
+    var yesterday_body = yesterday_doc.getBody().getParagraphs();
+​
+    // Find where to "slice" the document
+    for(i = 0; i < yesterday_body.length; i++){
+      //Logger.log(yesterday_body[i].getText());
+      if(yesterday_body[i].findText("Weekly Outline Briefed on Mondays")){
+        var cut = i+1;
+        break;
+      }
+    }
+​
+    /*
+     Create a new blank document called "<current-month> / <current day>" and
+     store a reference to it in the doc object :::::: EX.: If today is Monday,
+     June 15th, then the file will be named '7 / 15'
+    */
+    var doc = DocumentApp.create(month + " / " + date);
+    var body = doc.getBody();
+​
+    // Create the "Daily" portion
+    body.appendParagraph("Operations Daily Standup\n").setAttributes(h1);
+    body.appendParagraph("Issues of the Day\n").setAttributes(h2);
+    for(i = 0; i < empList.length; i++){
+      body.appendParagraph(empList[i] + ":\n").setAttributes(paras);
+    }
+​
+    // Create the "Weekly" portion
+    body.appendParagraph("\nWeekly Outline Briefed on Mondays").setAttributes(h2);
+    for(i = cut; i < yesterday_body.length; i++){
+      if (yesterday_body[i].getType() == DocumentApp.ElementType.LIST_ITEM) {
+        body.appendListItem(yesterday_body[i].setAttributes(paras).copy()).setNestingLevel(0).setGlyphType(DocumentApp.GlyphType.BULLET);
+        continue;
+      }
+      body.appendParagraph(yesterday_body[i].setAttributes(paras).copy());
+    }
+​
+    // Now that the 'doc' body is populated, get ID reference of doc object and
+    // add the reference to the 'newFolder'
+    var docfile = DriveApp.getFileById(doc.getId());
+    newFolder.addFile(docfile);
+  }
+}
